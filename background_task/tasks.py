@@ -13,12 +13,13 @@ from django.utils import timezone
 from six import python_2_unicode_compatible
 
 from background_task.exceptions import BackgroundTaskError
-from background_task.models import Task
+from background_task.models import Task, Queue
 from background_task.settings import app_settings
 from background_task import signals
 
 logger = logging.getLogger(__name__)
 
+from requests.exceptions import ConnectionError
 
 def bg_runner(proxy_task, task=None, *args, **kwargs):
     """
@@ -241,6 +242,10 @@ class DBTaskRunner(object):
         return task
 
     def get_task_to_run(self, tasks, queue=None):
+        if queue is not None:
+            q = Queue.objects.filter(name=queue).get()
+            if q and not q.enabled:
+                return None
         try:
             available_tasks = [task for task in Task.objects.find_available(queue)
                                if task.task_name in tasks._tasks][:5]
@@ -260,11 +265,13 @@ class DBTaskRunner(object):
     def run_next_task(self, tasks, queue=None):
         task = self.get_task_to_run(tasks, queue)
         if task:
-            self.run_task(tasks, task)
-            return True
-        else:
-            return False
-
+            try:
+                self.run_task(tasks, task)
+                return True
+            except ConnectionError:
+                if queue is not None:
+                    Queue(name=queue, enabled=False).save()
+        return False
 
 @python_2_unicode_compatible
 class TaskProxy(object):

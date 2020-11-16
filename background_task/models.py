@@ -444,3 +444,8 @@ class CompletedTask(models.Model):
             self.verbose_name or self.task_name,
             self.run_at,
         )
+
+@python_2_unicode_compatible
+class Queue(models.Model):
+    name = models.CharField(max_length=190, primary_key=True)
+    enabled = models.BooleanField(null=False, default=False)

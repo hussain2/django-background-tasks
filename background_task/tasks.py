@@ -270,7 +270,10 @@ class DBTaskRunner(object):
                 return True
             except ConnectionError:
                 if queue is not None:
-                    Queue(name=queue, enabled=False).save()
+                    q = Queue.objects.filter(name=queue).get()
+                    if q is None: q = Queue(name=queue)
+                    q.enable = False
+                    q.save()
         return False
 
 @python_2_unicode_compatible
